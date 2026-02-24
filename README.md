@@ -2,5 +2,5 @@
 pip install pytdx plyer
 
 # 运行程序
-cd stock_monitor
+cd stock
 python main.py
