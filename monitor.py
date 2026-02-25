@@ -1,5 +1,5 @@
 """
-多股票监控程序 - 单文件简化版
+股票监控程序 - 单文件简化版
 支持多股票监控，配置简单，易于运行
 """
 
@@ -334,7 +334,7 @@ def monitor_stocks():
 
 if __name__ == "__main__":
     logger.info("=" * 50)
-    logger.info("多股票监控程序启动")
+    logger.info("股票监控程序启动")
     logger.info("=" * 50)
     
     monitor_stocks()
