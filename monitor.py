@@ -53,15 +53,6 @@ STOCKS_CONFIG = [
         "volume_threshold": 50,
         "price_alert_threshold": 1.0,
         "price_change_threshold": 3.0
-    },
-    {
-        "symbol": "镇洋发展",
-        "code": "603213",
-        "market_code": 1,
-        "enabled": True,
-        "volume_threshold": 100,
-        "price_alert_threshold": 1.0,
-        "price_change_threshold": 3.0
     }
 ]
 
@@ -303,7 +294,7 @@ def monitor_stocks():
                                 f"股票: {stock.symbol}({stock.code}) | "
                                 f"价格: {stock.current_price:.2f} | "
                                 f"涨跌幅: {stock.change_percent:+.2f}% | "
-                                f"成交量: {stock.volume}手"
+                                f"成交额: {stock.amount:.2f}万"
                             )
                 
             except Exception as e:
