@@ -199,6 +199,15 @@ def check_stock_alerts(stock: Stock, seconds: int):
                 "成交量提醒", 
                 f"成交量增加 {volume_change:.2f}万"
             )
+
+    # 检查价格提醒
+    elif abs(stock.change_percent) > stock.price_alert_threshold:
+        direction = "上涨" if stock.change_percent > 0 else "下跌"
+        send_notification(
+            stock,
+            "价格提醒",
+            f"{direction}{abs(stock.change_percent)}%"
+        )
     
     # 检查价格大幅波动
     if abs(stock.change_percent) > stock.price_change_threshold:
@@ -209,15 +218,6 @@ def check_stock_alerts(stock: Stock, seconds: int):
             "价格波动警告",
             f"{direction}{abs(stock.change_percent)}%",
             critical=True
-        )
-    
-    # 检查价格提醒
-    elif abs(stock.change_percent) > stock.price_alert_threshold:
-        direction = "上涨" if stock.change_percent > 0 else "下跌"
-        send_notification(
-            stock,
-            "价格提醒",
-            f"{direction}{abs(stock.change_percent)}%"
         )
 
 # ==================================================
