@@ -43,18 +43,33 @@ CONFIG = {
     'notification_cooldown': 60,
 }
 
+# ==================================================
 # 股票配置
-STOCKS_CONFIG = [
-    {
-        "symbol": "机科股份",
-        "code": "920579",
-        "market_code": 2,
-        "enabled": True,
-        "volume_threshold": 50,
-        "price_alert_threshold": 1.0,
-        "price_change_threshold": 3.0
-    }
-]
+# ==================================================
+
+# 初始化股票配置列表
+STOCKS_CONFIG = []
+
+# 追加股票配置
+STOCKS_CONFIG.append({
+    "symbol": "机科股份",
+    "code": "920579",
+    "market_code": 2,
+    "enabled": True,
+    "volume_threshold": 50,
+    "price_alert_threshold": 1.0,
+    "price_change_threshold": 3.0
+})
+
+STOCKS_CONFIG.append({
+    "symbol": "镇洋发展",
+    "code": "603213",
+    "market_code": 2,
+    "enabled": True,
+    "volume_threshold": 100,
+    "price_alert_threshold": 1.0,
+    "price_change_threshold": 3.0
+})
 
 # ==================================================
 # 股票数据类
@@ -320,6 +335,7 @@ def monitor_stocks():
 if __name__ == "__main__":
     logger.info("=" * 50)
     logger.info("多股票监控程序启动")
+    logger.info(f"已配置 {len(STOCKS_CONFIG)} 支股票")
     logger.info("=" * 50)
     
     monitor_stocks()
