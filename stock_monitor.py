@@ -51,17 +51,17 @@ STOCKS_CONFIG = [
         "market_code": 2,
         "enabled": True,
         "volume_threshold": 50,
-        "price_change_threshold": 5.0,
-        "price_alert_threshold": 3.0
+        "price_alert_threshold": 2.0,
+        "price_change_threshold": 2.0
     },
     {
         "symbol": "镇洋发展",
         "code": "603213",
         "market_code": 1,
         "enabled": True,
-        "volume_threshold": 1000,
-        "price_change_threshold": 3.0,
-        "price_alert_threshold": 2.0
+        "volume_threshold": 100,
+        "price_alert_threshold": 1.0,
+        "price_change_threshold": 1.0
     }
 ]
 
@@ -79,9 +79,9 @@ class Stock:
         self.enabled = config.get('enabled', True)
         
         # 监控规则
-        self.volume_threshold = config.get('volume_threshold', 50)
-        self.price_change_threshold = config.get('price_change_threshold', 5.0)
-        self.price_alert_threshold = config.get('price_alert_threshold', 3.0)
+        self.volume_threshold = config.get('volume_threshold', 10)
+        self.price_alert_threshold = config.get('price_alert_threshold', 1.0)
+        self.price_change_threshold = config.get('price_change_threshold', 1.0)
         
         # 状态
         self.current_price = 0.0
@@ -301,7 +301,6 @@ def monitor_stocks():
                             # 记录日志
                             logger.info(
                                 f"股票: {stock.symbol}({stock.code}) | "
-                                f"时间: {current_time.strftime('%H:%M:%S')} | "
                                 f"价格: {stock.current_price:.2f} | "
                                 f"涨跌幅: {stock.change_percent:+.2f}% | "
                                 f"成交量: {stock.volume}手"
