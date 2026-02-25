@@ -50,7 +50,6 @@ CONFIG = {
 # 初始化股票配置列表
 STOCKS_CONFIG = []
 
-# 追加股票配置
 STOCKS_CONFIG.append({
     "symbol": "机科股份",
     "code": "920579",
@@ -64,7 +63,7 @@ STOCKS_CONFIG.append({
 STOCKS_CONFIG.append({
     "symbol": "镇洋发展",
     "code": "603213",
-    "market_code": 2,
+    "market_code": 1,
     "enabled": True,
     "volume_threshold": 100,
     "price_alert_threshold": 1.0,
@@ -335,7 +334,6 @@ def monitor_stocks():
 if __name__ == "__main__":
     logger.info("=" * 50)
     logger.info("多股票监控程序启动")
-    logger.info(f"已配置 {len(STOCKS_CONFIG)} 支股票")
     logger.info("=" * 50)
     
     monitor_stocks()
