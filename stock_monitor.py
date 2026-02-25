@@ -51,8 +51,8 @@ STOCKS_CONFIG = [
         "market_code": 2,
         "enabled": True,
         "volume_threshold": 50,
-        "price_alert_threshold": 2.0,
-        "price_change_threshold": 2.0
+        "price_alert_threshold": 1.0,
+        "price_change_threshold": 3.0
     },
     {
         "symbol": "镇洋发展",
@@ -61,7 +61,7 @@ STOCKS_CONFIG = [
         "enabled": True,
         "volume_threshold": 100,
         "price_alert_threshold": 1.0,
-        "price_change_threshold": 1.0
+        "price_change_threshold": 3.0
     }
 ]
 
@@ -81,7 +81,7 @@ class Stock:
         # 监控规则
         self.volume_threshold = config.get('volume_threshold', 10)
         self.price_alert_threshold = config.get('price_alert_threshold', 1.0)
-        self.price_change_threshold = config.get('price_change_threshold', 1.0)
+        self.price_change_threshold = config.get('price_change_threshold', 3.0)
         
         # 状态
         self.current_price = 0.0
