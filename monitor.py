@@ -15,6 +15,7 @@ from plyer import notification
 
 # ==================================================
 # 配置
+# market_code[0:深交所、1:上交所、2:北交所、3:港股、4:美股]
 # ==================================================
 
 # 日志配置
@@ -45,7 +46,6 @@ CONFIG = {
 
 # ====================================================
 # 股票配置
-# market_code[0:深交所、1:上交所、2:北交所、3:港股、4:美股]
 # ====================================================
 
 # 初始化股票配置列表
@@ -62,9 +62,9 @@ STOCKS_CONFIG.append({
 })
 
 STOCKS_CONFIG.append({
-    "symbol": "镇洋发展",
-    "code": "603213",
-    "market_code": 1,
+    "symbol": "埃斯顿",
+    "code": "002747",
+    "market_code": 0,
     "enabled": True,
     "volume_threshold": 100,
     "price_alert_threshold": 1.0,
@@ -99,7 +99,7 @@ class Stock:
         # 监控状态
         self.last_notification_time = None
         self.start_amount = 0
-        self.last_price = None
+        self.last_minute = -1
         self.last_update = None
         
     def update(self, data: Dict[str, Any]):
@@ -188,26 +188,31 @@ def send_notification(stock: Stock, title: str, message: str, critical: bool = F
     except Exception as e:
         logger.error(f"发送通知失败: {str(e)}")
 
-def check_stock_alerts(stock: Stock, seconds: int):
+def check_stock_alerts(stock: Stock, current_time: datetime):
     """检查股票警报"""
-    # 每分钟开始时记录起始成交量
-    if seconds == 0:
-        stock.start_amount = stock.amount
-        logger.debug(f"{stock.symbol} 重置每分钟起始成交量")
+    current_minute = current_time.minute
+    current_second = current_time.second
     
-    # 每分钟结束时检查成交量异常
-    if seconds == 59 and stock.start_amount > 0:
+    # 每分钟开始时记录起始成交量
+    if current_second == 0 and current_minute != stock.last_minute:
+        stock.start_amount = stock.amount
+        stock.last_minute = current_minute
+        logger.debug(f"{stock.symbol} 重置每分钟起始成交量: {stock.amount:.2f}万")
+    
+    # 每分钟结束前检查成交量异常（使用时间范围，提高容错性）
+    if 58 <= current_second <= 59 and stock.start_amount > 0:
         volume_change = stock.amount - stock.start_amount
         if volume_change > stock.volume_threshold:
-            logger.warning(f"{stock.symbol} 成交量异常增加: {volume_change}万")
+            logger.warning(f"{stock.symbol} 成交量异常增加: {volume_change:.2f}万")
             send_notification(
                 stock, 
                 "成交量提醒", 
                 f"成交量增加 {volume_change:.2f}万"
             )
+            stock.start_amount = stock.amount
 
     # 检查价格提醒
-    elif abs(stock.change_percent) > stock.price_alert_threshold:
+    if abs(stock.change_percent) > stock.price_alert_threshold:
         direction = "上涨" if stock.change_percent > 0 else "下跌"
         send_notification(
             stock,
@@ -292,7 +297,6 @@ def monitor_stocks():
                 
                 # 更新股票数据
                 current_time = datetime.now()
-                seconds = current_time.second
                 
                 for item in response:
                     if isinstance(item, dict) and 'code' in item:
@@ -302,8 +306,8 @@ def monitor_stocks():
                             stock.update(item)
                             
                             # 检查警报
-                            check_stock_alerts(stock, seconds)
-                            
+                            check_stock_alerts(stock, current_time)
+
                             # 记录日志
                             logger.info(
                                 f"股票: {stock.symbol}({stock.code}) | "
