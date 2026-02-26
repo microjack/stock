@@ -57,7 +57,7 @@ STOCKS_CONFIG.append({
     "market_code": 2,
     "enabled": True,
     "volume_threshold": 50,
-    "price_alert_threshold": 1.0,
+    "price_alert_threshold": 2.0,
     "price_change_threshold": 3.0
 })
 
@@ -66,8 +66,8 @@ STOCKS_CONFIG.append({
     "code": "002747",
     "market_code": 0,
     "enabled": True,
-    "volume_threshold": 100,
-    "price_alert_threshold": 1.0,
+    "volume_threshold": 500,
+    "price_alert_threshold": 2.0,
     "price_change_threshold": 3.0
 })
 
