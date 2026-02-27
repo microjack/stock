@@ -45,7 +45,6 @@ CONFIG = {
 
 # ====================================================
 # 股票配置
-# market_code[0:深交所、1:上交所、2:北交所、3:港股]
 # ====================================================
 
 # 初始化股票配置列表
@@ -59,7 +58,7 @@ STOCKS_CONFIG.append({
     "volume_threshold": 50,
     "price_alert_threshold": 2.0,
     "price_change_threshold": 3.0,
-    "target_price": 24.5
+    "target_prices": [12.0, 13.0, 14.0],  # 多个目标价
 })
 
 STOCKS_CONFIG.append({
@@ -70,7 +69,7 @@ STOCKS_CONFIG.append({
     "volume_threshold": 500,
     "price_alert_threshold": 2.0,
     "price_change_threshold": 3.0,
-    "target_price": 24.5
+    "target_prices": [15.0, 16.0, 17.0],  # 多个目标价
 })
 
 # ==================================================
@@ -90,8 +89,14 @@ class Stock:
         self.volume_threshold = config.get('volume_threshold', 10)
         self.price_alert_threshold = config.get('price_alert_threshold', 1.0)
         self.price_change_threshold = config.get('price_change_threshold', 3.0)
-        self.target_price = config.get('target_price', None)
-        self.target_reached = False
+        
+        # 到价提醒配置
+        self.target_prices = config.get('target_prices', [])
+        self.target_triggered = {}  # 记录每个目标价是否已触发
+        
+        # 初始化目标价触发状态
+        for price in self.target_prices:
+            self.target_triggered[price] = False
         
         # 状态
         self.current_price = 0.0
@@ -235,16 +240,17 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
             critical=True
         )
     
-    # 检查到价提醒
-    if stock.target_price and not stock.target_reached and stock.current_price >= stock.target_price:
-        stock.target_reached = True
-        logger.warning(f"{stock.symbol} 达到目标价: {stock.current_price:.2f} >= {stock.target_price}")
-        send_notification(
-            stock,
-            "到价提醒",
-            f"达到目标价 {stock.target_price:.2f}，当前价 {stock.current_price:.2f}",
-            critical=True
-        )
+    # 检查到价提醒（多个目标价）
+    for target_price in stock.target_prices:
+        if not stock.target_triggered[target_price] and stock.current_price >= target_price:
+            stock.target_triggered[target_price] = True
+            logger.warning(f"{stock.symbol} 达到目标价: {stock.current_price:.2f} >= {target_price}")
+            send_notification(
+                stock,
+                "到价提醒",
+                f"达到目标价 {target_price:.2f}，当前价 {stock.current_price:.2f}",
+                critical=True
+            )
 
 # ==================================================
 # 主监控函数
