@@ -15,7 +15,6 @@ from plyer import notification
 
 # ==================================================
 # 配置
-# market_code[0:深交所、1:上交所、2:北交所、3:港股、4:美股]
 # ==================================================
 
 # 日志配置
@@ -46,6 +45,7 @@ CONFIG = {
 
 # ====================================================
 # 股票配置
+# market_code[0:深交所、1:上交所、2:北交所、3:港股]
 # ====================================================
 
 # 初始化股票配置列表
@@ -58,7 +58,8 @@ STOCKS_CONFIG.append({
     "enabled": True,
     "volume_threshold": 50,
     "price_alert_threshold": 2.0,
-    "price_change_threshold": 3.0
+    "price_change_threshold": 3.0,
+    "target_price": 24.5
 })
 
 STOCKS_CONFIG.append({
@@ -68,7 +69,8 @@ STOCKS_CONFIG.append({
     "enabled": True,
     "volume_threshold": 500,
     "price_alert_threshold": 2.0,
-    "price_change_threshold": 3.0
+    "price_change_threshold": 3.0,
+    "target_price": 24.5
 })
 
 # ==================================================
@@ -88,6 +90,8 @@ class Stock:
         self.volume_threshold = config.get('volume_threshold', 10)
         self.price_alert_threshold = config.get('price_alert_threshold', 1.0)
         self.price_change_threshold = config.get('price_change_threshold', 3.0)
+        self.target_price = config.get('target_price', None)
+        self.target_reached = False
         
         # 状态
         self.current_price = 0.0
@@ -230,6 +234,17 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
             f"{direction}{abs(stock.change_percent)}%",
             critical=True
         )
+    
+    # 检查到价提醒
+    if stock.target_price and not stock.target_reached and stock.current_price >= stock.target_price:
+        stock.target_reached = True
+        logger.warning(f"{stock.symbol} 达到目标价: {stock.current_price:.2f} >= {stock.target_price}")
+        send_notification(
+            stock,
+            "到价提醒",
+            f"达到目标价 {stock.target_price:.2f}，当前价 {stock.current_price:.2f}",
+            critical=True
+        )
 
 # ==================================================
 # 主监控函数
@@ -307,7 +322,7 @@ def monitor_stocks():
                             
                             # 检查警报
                             check_stock_alerts(stock, current_time)
-
+                            
                             # 记录日志
                             logger.info(
                                 f"股票: {stock.symbol}({stock.code}) | "
