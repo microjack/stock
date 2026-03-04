@@ -51,25 +51,26 @@ CONFIG = {
 STOCKS_CONFIG = []
 
 STOCKS_CONFIG.append({
-    "symbol": "机科股份",
+    "symbol": "工业机器人",
     "code": "920579",
     "market_code": 2,
     "enabled": True,
-    "volume_threshold": 50,
-    "price_alert_threshold": 2.0,
-    "price_change_threshold": 3.0,
-    "target_prices": [24.0, 24.5, 25.0]
+    "volume_threshold": 100,
+    "price_alert_threshold": 30.0,
+    "price_change_threshold": 30.0,
+    "target_prices": [22.7, 22.8, 22.9, 23.0, 23.5, 24.0, 24.5, 25.0, 25.5, 26.0, 26.5, 27.0, 27.5, 28.0, 28.5, 29.0, 29.5, 30.0]
 })
 
+
 STOCKS_CONFIG.append({
-    "symbol": "埃斯顿",
-    "code": "002747",
-    "market_code": 0,
+    "symbol": "AI眼镜",
+    "code": "688608",
+    "market_code": 1,
     "enabled": True,
-    "volume_threshold": 500,
-    "price_alert_threshold": 2.0,
-    "price_change_threshold": 3.0,
-    "target_prices": [24.0, 24.5, 25.0]
+    "volume_threshold": 1000,
+    "price_alert_threshold": 10.0,
+    "price_change_threshold": 10.0,
+    "target_prices": [190.0, 195.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0]
 })
 
 # ==================================================
@@ -212,11 +213,11 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
     if 58 <= current_second <= 59 and stock.start_amount > 0:
         volume_change = stock.amount - stock.start_amount
         if volume_change > stock.volume_threshold:
-            logger.warning(f"{stock.symbol} 成交量异常增加: {volume_change:.2f}万")
+            logger.warning(f"{stock.symbol} 成交量异常变化: {volume_change:.2f}万")
             send_notification(
                 stock, 
                 "成交量提醒", 
-                f"成交量增加 {volume_change:.2f}万"
+                f"成交量变化 {volume_change:.2f}万"
             )
             stock.start_amount = stock.amount
 
@@ -348,6 +349,12 @@ def monitor_stocks():
         logger.info("用户中断监控")
     except Exception as e:
         logger.error(f"监控过程中发生错误: {str(e)}")
+        send_notification(
+            stock,
+            "监控程序异常",
+            f"{str(e)}",
+            critical=True
+        )
     finally:
         if is_connected:
             api.disconnect()
