@@ -18,13 +18,11 @@ from plyer import notification
 # ==================================================
 
 # 日志配置
-log_filename = f"monitor_{datetime.now().strftime('%Y%m%d')}.log"
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_filename, encoding='utf-8'),  # 使用带日期的文件名
+        logging.FileHandler('/Users/wangjie/pan/monitor.log'),
         logging.StreamHandler()
     ]
 )
