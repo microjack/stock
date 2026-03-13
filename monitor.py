@@ -55,7 +55,7 @@ STOCKS_CONFIG.append({
     "code": "920579",
     "market_code": 2,
     "enabled": True,
-    "volume_threshold": 200,
+    "volume_threshold": 100,
     "price_alert_threshold": 30.0,
     "price_change_threshold": 30.0,
     "target_prices": [22.7, 22.8, 22.9, 23.0, 23.5, 24.0, 24.5, 25.0, 25.5, 26.0, 26.5, 27.0, 27.5, 28.0, 28.5, 29.0, 29.5, 30.0]
