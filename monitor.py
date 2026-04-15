@@ -187,7 +187,7 @@ def send_notification(stock: Stock, title: str, message: str, critical: bool = F
         else:
             notification.notify(
                 title=full_title,
-                app_name='股票监控',
+                app_name=f"价格: {stock.current_price:.2f}",
                 message=message,
                 timeout=10
             )
