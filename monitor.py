@@ -67,7 +67,7 @@ STOCKS_CONFIG.append({
     "code": "688608",
     "market_code": 1,
     "enabled": True,
-    "volume_threshold": 1500,
+    "volume_threshold": 2000,
     "price_alert_threshold": 10.0,
     "price_change_threshold": 10.0,
     "target_prices": [190.0, 195.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0]
@@ -217,7 +217,7 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
             send_notification(
                 stock, 
                 "成交量提醒", 
-                f"成交量变化 {volume_change:.2f}万"
+                f"成交额: {volume_change:.2f}万"
             )
             stock.start_amount = stock.amount
 
