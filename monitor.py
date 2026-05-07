@@ -56,7 +56,7 @@ STOCKS_CONFIG.append({
     "market_code": 2,
     "enabled": True,
     "volume_threshold": 100,
-    "price_alert_threshold": 30.0,
+    "price_alert_threshold": 10.0,
     "price_change_threshold": 30.0,
     "target_prices": [32.4]
 })
@@ -68,8 +68,8 @@ STOCKS_CONFIG.append({
     "market_code": 1,
     "enabled": True,
     "volume_threshold": 1000,
-    "price_alert_threshold": 10.0,
-    "price_change_threshold": 10.0,
+    "price_alert_threshold": 6.0,
+    "price_change_threshold": 20.0,
     "target_prices": [182.3]
 })
 
