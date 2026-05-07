@@ -58,7 +58,7 @@ STOCKS_CONFIG.append({
     "volume_threshold": 100,
     "price_alert_threshold": 30.0,
     "price_change_threshold": 30.0,
-    "target_prices": [22.7, 22.8, 22.9, 23.0, 23.5, 24.0, 24.5, 25.0, 25.5, 26.0, 26.5, 27.0, 27.5, 28.0, 28.5, 29.0, 29.5, 30.0]
+    "target_prices": [32.4]
 })
 
 
@@ -70,7 +70,7 @@ STOCKS_CONFIG.append({
     "volume_threshold": 1000,
     "price_alert_threshold": 10.0,
     "price_change_threshold": 10.0,
-    "target_prices": [190.0, 195.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0]
+    "target_prices": [182.3]
 })
 
 # ==================================================
