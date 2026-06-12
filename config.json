@@ -1,0 +1,47 @@
+{
+  "config": {
+    "host": "111.229.247.189",
+    "port": 7709,
+    "log_path": "/Users/wangjie/pan/monitor.log",
+    "trading_ranges": [
+      ["09:30", "11:30"],
+      ["13:00", "15:00"]
+    ],
+    "check_interval": 1,
+    "max_retries": 3,
+    "retry_delay": 5,
+    "notification_cooldown": 60
+  },
+  "stocks": [
+    {
+      "symbol": "国匠精工",
+      "code": "920579",
+      "market_code": 2,
+      "enabled": true,
+      "volume_threshold": 200,
+      "price_alert_threshold": 7.0,
+      "price_change_threshold": 30.0,
+      "target_prices": [21]
+    },
+    {
+      "symbol": "无敌小强",
+      "code": "688608",
+      "market_code": 1,
+      "enabled": true,
+      "volume_threshold": 2000,
+      "price_alert_threshold": 7.0,
+      "price_change_threshold": 20.0,
+      "target_prices": [220]
+    },
+    {
+      "symbol": "疯狂石头",
+      "code": "688169",
+      "market_code": 1,
+      "enabled": true,
+      "volume_threshold": 2000,
+      "price_alert_threshold": 7.0,
+      "price_change_threshold": 20.0,
+      "target_prices": [150]
+    }
+  ]
+}

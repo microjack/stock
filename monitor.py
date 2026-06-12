@@ -9,6 +9,7 @@ import json
 import subprocess
 import socket
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from pytdx.hq import TdxHq_API
 from plyer import notification
@@ -17,22 +18,13 @@ from plyer import notification
 # 配置
 # ==================================================
 
-# 日志配置
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/Users/wangjie/pan/monitor.log'),
-        logging.StreamHandler()
-    ]
-)
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config.json"
 
-logger = logging.getLogger(__name__)
-
-# 通用配置
-CONFIG = {
+DEFAULT_CONFIG = {
     'host': '111.229.247.189',
     'port': 7709,
+    'log_path': str(BASE_DIR / 'monitor.log'),
     'trading_ranges': [
         ("09:30", "11:30"),
         ("13:00", "15:00")
@@ -43,35 +35,93 @@ CONFIG = {
     'notification_cooldown': 60,
 }
 
-# ====================================================
-# 股票配置
-# ====================================================
-
-# 初始化股票配置列表
-STOCKS_CONFIG = []
-
-STOCKS_CONFIG.append({
-    "symbol": "工业母机",
+DEFAULT_STOCKS_CONFIG = [{
+    "symbol": "国匠精工",
     "code": "920579",
     "market_code": 2,
     "enabled": True,
-    "volume_threshold": 100,
-    "price_alert_threshold": 10.0,
+    "volume_threshold": 200,
+    "price_alert_threshold": 7.0,
     "price_change_threshold": 30.0,
-    "target_prices": [32.4]
-})
-
-
-STOCKS_CONFIG.append({
-    "symbol": "AI眼镜",
+    "target_prices": [21]
+}, {
+    "symbol": "无敌小强",
     "code": "688608",
     "market_code": 1,
     "enabled": True,
-    "volume_threshold": 1000,
-    "price_alert_threshold": 6.0,
+    "volume_threshold": 2000,
+    "price_alert_threshold": 7.0,
     "price_change_threshold": 20.0,
-    "target_prices": [182.3]
-})
+    "target_prices": [220]
+}, {
+    "symbol": "疯狂石头",
+    "code": "688169",
+    "market_code": 1,
+    "enabled": True,
+    "volume_threshold": 2000,
+    "price_alert_threshold": 7.0,
+    "price_change_threshold": 20.0,
+    "target_prices": [150]
+}]
+
+def load_app_config(config_path: Path = CONFIG_PATH) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[str]]:
+    """加载配置文件，失败时回退到默认配置。"""
+    config = DEFAULT_CONFIG.copy()
+    stocks_config = [stock.copy() for stock in DEFAULT_STOCKS_CONFIG]
+    warnings = []
+
+    if not config_path.exists():
+        warnings.append(f"配置文件不存在，使用默认配置: {config_path}")
+        return config, stocks_config, warnings
+
+    try:
+        with config_path.open("r", encoding="utf-8") as config_file:
+            file_config = json.load(config_file)
+    except (OSError, json.JSONDecodeError) as e:
+        warnings.append(f"读取配置文件失败，使用默认配置: {e}")
+        return config, stocks_config, warnings
+
+    loaded_config = file_config.get("config", {})
+    if isinstance(loaded_config, dict):
+        config.update(loaded_config)
+    else:
+        warnings.append("config 字段不是对象，已使用默认通用配置")
+
+    loaded_stocks = file_config.get("stocks")
+    if isinstance(loaded_stocks, list):
+        stocks_config = loaded_stocks
+    elif loaded_stocks is not None:
+        warnings.append("stocks 字段不是数组，已使用默认股票配置")
+
+    return config, stocks_config, warnings
+
+def parse_trading_ranges(ranges: List[List[str]]) -> List[Tuple[Any, Any]]:
+    """解析交易时间段，结束时间按开区间处理。"""
+    return [
+        (
+            datetime.strptime(start, "%H:%M").time(),
+            datetime.strptime(end, "%H:%M").time()
+        )
+        for start, end in ranges
+    ]
+
+CONFIG, STOCKS_CONFIG, CONFIG_WARNINGS = load_app_config()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(CONFIG['log_path']),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+for warning in CONFIG_WARNINGS:
+    logger.warning(warning)
+
+TRADING_RANGES = parse_trading_ranges(CONFIG['trading_ranges'])
 
 # ==================================================
 # 股票数据类
@@ -107,9 +157,9 @@ class Stock:
         self.change_percent = 0.0
         
         # 监控状态
-        self.last_notification_time = None
+        self.last_notification_times = {}
         self.start_amount = 0
-        self.last_minute = -1
+        self.last_amount_minute = None
         self.last_update = None
         
     def update(self, data: Dict[str, Any]):
@@ -128,22 +178,25 @@ class Stock:
 # 工具函数
 # ==================================================
 
-def is_trading_hours() -> bool:
+def is_trading_hours(now: Optional[datetime] = None) -> bool:
     """检查是否在交易时间内"""
-    current_time = datetime.now().strftime("%H:%M")
-    for start, end in CONFIG['trading_ranges']:
-        if start <= current_time <= end:
+    current_time = (now or datetime.now()).time()
+    for start, end in TRADING_RANGES:
+        if start <= current_time < end:
             return True
     return False
 
 def check_network_connection() -> bool:
     """检查网络连接"""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(3)
     try:
-        socket.setdefaulttimeout(3)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("8.8.8.8", 53))
+        sock.connect(("8.8.8.8", 53))
         return True
-    except:
+    except OSError:
         return False
+    finally:
+        sock.close()
 
 def wait_for_network_recovery(max_retries: int = 5) -> bool:
     """等待网络恢复"""
@@ -161,17 +214,18 @@ def wait_for_network_recovery(max_retries: int = 5) -> bool:
     logger.error("网络连接失败超过最大重试次数")
     return False
 
-def can_send_notification(stock: Stock) -> bool:
+def can_send_notification(stock: Stock, title: str) -> bool:
     """检查是否可以发送通知"""
-    if stock.last_notification_time is None:
+    last_notification_time = stock.last_notification_times.get(title)
+    if last_notification_time is None:
         return True
     
-    time_since_last = (datetime.now() - stock.last_notification_time).total_seconds()
+    time_since_last = (datetime.now() - last_notification_time).total_seconds()
     return time_since_last >= CONFIG['notification_cooldown']
 
 def send_notification(stock: Stock, title: str, message: str, critical: bool = False):
     """发送通知"""
-    if not can_send_notification(stock):
+    if not can_send_notification(stock, title):
         return
     
     try:
@@ -192,34 +246,63 @@ def send_notification(stock: Stock, title: str, message: str, critical: bool = F
                 timeout=10
             )
         
-        stock.last_notification_time = datetime.now()
+        stock.last_notification_times[title] = datetime.now()
         logger.info(f"已发送通知: {full_title} - {message}")
         
     except Exception as e:
         logger.error(f"发送通知失败: {str(e)}")
 
+def send_system_notification(title: str, message: str, critical: bool = False):
+    """发送程序级通知"""
+    try:
+        full_title = f"[股票监控] {title}"
+
+        if critical:
+            subprocess.run(
+                ['osascript', '-e', f'display alert "{full_title}" message "{message}" as critical'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        else:
+            notification.notify(
+                title=full_title,
+                app_name="股票监控",
+                message=message,
+                timeout=10
+            )
+
+        logger.info(f"已发送系统通知: {full_title} - {message}")
+
+    except Exception as e:
+        logger.error(f"发送系统通知失败: {str(e)}")
+
 def check_stock_alerts(stock: Stock, current_time: datetime):
     """检查股票警报"""
-    current_minute = current_time.minute
-    current_second = current_time.second
+    current_minute = current_time.replace(second=0, microsecond=0)
     
-    # 每分钟开始时记录起始成交量
-    if current_second == 0 and current_minute != stock.last_minute:
+    # 按分钟边界结算成交额变化，避免因为循环错过固定秒数而漏报。
+    if stock.last_amount_minute is None:
         stock.start_amount = stock.amount
-        stock.last_minute = current_minute
-        logger.debug(f"{stock.symbol} 重置每分钟起始成交量: {stock.amount:.2f}万")
-    
-    # 每分钟结束前检查成交量异常（使用时间范围，提高容错性）
-    if 58 <= current_second <= 59 and stock.start_amount > 0:
-        volume_change = stock.amount - stock.start_amount
-        if volume_change > stock.volume_threshold:
-            logger.warning(f"{stock.symbol} 成交量异常变化: {volume_change:.2f}万")
-            send_notification(
-                stock, 
-                "成交量提醒", 
-                f"成交额: {volume_change:.2f}万"
-            )
+        stock.last_amount_minute = current_minute
+    elif current_minute != stock.last_amount_minute:
+        elapsed_minutes = (current_minute - stock.last_amount_minute).total_seconds() / 60
+        if elapsed_minutes > 1:
             stock.start_amount = stock.amount
+            stock.last_amount_minute = current_minute
+            logger.debug(f"{stock.symbol} 成交额基准已重置: {stock.amount:.2f}万")
+        else:
+            volume_change = stock.amount - stock.start_amount
+            if volume_change > stock.volume_threshold:
+                logger.warning(f"{stock.symbol} 成交量异常变化: {volume_change:.2f}万")
+                send_notification(
+                    stock,
+                    "成交量提醒",
+                    f"成交额: {volume_change:.2f}万"
+                )
+
+            stock.start_amount = stock.amount
+            stock.last_amount_minute = current_minute
 
     # 检查价格提醒
     if abs(stock.change_percent) > stock.price_alert_threshold:
@@ -337,7 +420,7 @@ def monitor_stocks():
                                 f"涨跌幅: {stock.change_percent:+.2f}% | "
                                 f"成交额: {stock.amount:.2f}万"
                             )
-                
+
             except Exception as e:
                 logger.error(f"获取股票数据失败: {str(e)}")
                 api.disconnect()
@@ -349,8 +432,7 @@ def monitor_stocks():
         logger.info("用户中断监控")
     except Exception as e:
         logger.error(f"监控过程中发生错误: {str(e)}")
-        send_notification(
-            stock,
+        send_system_notification(
             "监控程序异常",
             f"{str(e)}",
             critical=True
