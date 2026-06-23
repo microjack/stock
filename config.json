@@ -10,7 +10,8 @@
     "check_interval": 1,
     "max_retries": 3,
     "retry_delay": 5,
-    "notification_cooldown": 60
+    "notification_cooldown": 60,
+    "closing_snapshot_grace_seconds": 10
   },
   "stocks": [
     {
@@ -21,7 +22,7 @@
       "volume_threshold": 200,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 30.0,
-      "target_prices": [21]
+      "target_prices": [42]
     },
     {
       "symbol": "无敌小强",
@@ -31,7 +32,7 @@
       "volume_threshold": 2000,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 20.0,
-      "target_prices": [220]
+      "target_prices": [154.3]
     },
     {
       "symbol": "疯狂石头",
@@ -41,7 +42,7 @@
       "volume_threshold": 2000,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 20.0,
-      "target_prices": [150]
+      "target_prices": [130]
     }
   ]
 }

@@ -33,6 +33,7 @@ DEFAULT_CONFIG = {
     'max_retries': 3,
     'retry_delay': 5,
     'notification_cooldown': 60,
+    'closing_snapshot_grace_seconds': 10,
 }
 
 DEFAULT_STOCKS_CONFIG = [{
@@ -185,6 +186,24 @@ def is_trading_hours(now: Optional[datetime] = None) -> bool:
         if start <= current_time < end:
             return True
     return False
+
+def get_closing_snapshot_key(now: Optional[datetime] = None) -> Optional[str]:
+    """在收盘后的短窗口内返回快照标识，确保 11:30/15:00 数据被抓取一次。"""
+    current = now or datetime.now()
+    grace_seconds = CONFIG.get('closing_snapshot_grace_seconds', 10)
+
+    for _, end in TRADING_RANGES:
+        session_end = current.replace(
+            hour=end.hour,
+            minute=end.minute,
+            second=end.second,
+            microsecond=0
+        )
+        elapsed_seconds = (current - session_end).total_seconds()
+        if 0 <= elapsed_seconds <= grace_seconds:
+            return f"{current.date()} {end.strftime('%H:%M')}"
+
+    return None
 
 def check_network_connection() -> bool:
     """检查网络连接"""
@@ -340,6 +359,42 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
 # 主监控函数
 # ==================================================
 
+def fetch_and_process_quotes(
+    api: TdxHq_API,
+    stocks: Dict[str, Stock],
+    enabled_stocks: List[Tuple[int, str]],
+    snapshot_label: Optional[str] = None
+) -> bool:
+    """获取行情、更新状态、检查提醒并写入日志。"""
+    response = api.get_security_quotes(enabled_stocks)
+
+    if not response:
+        logger.warning("获取股票数据为空，可能连接已断开")
+        return False
+
+    current_time = datetime.now()
+    log_prefix = f"{snapshot_label} | " if snapshot_label else ""
+
+    for item in response:
+        if isinstance(item, dict) and 'code' in item:
+            code = item['code']
+            if code in stocks:
+                stock = stocks[code]
+                stock.update(item)
+
+                # 检查警报
+                check_stock_alerts(stock, current_time)
+
+                # 记录日志
+                logger.info(
+                    f"{log_prefix}股票: {stock.symbol}({stock.code}) | "
+                    f"价格: {stock.current_price:.2f} | "
+                    f"涨跌幅: {stock.change_percent:+.2f}% | "
+                    f"成交额: {stock.amount:.2f}万"
+                )
+
+    return True
+
 def monitor_stocks():
     """监控多支股票"""
     # 创建股票对象
@@ -358,11 +413,51 @@ def monitor_stocks():
     # 连接TDX
     api = TdxHq_API()
     is_connected = False
+    completed_closing_snapshots = set()
     
     try:
         while True:
+            current_time = datetime.now()
             # 检查是否在交易时间
-            if not is_trading_hours():
+            if not is_trading_hours(current_time):
+                snapshot_key = get_closing_snapshot_key(current_time)
+                if snapshot_key and snapshot_key not in completed_closing_snapshots:
+                    if not check_network_connection():
+                        logger.warning("网络连接异常")
+                        if not wait_for_network_recovery():
+                            logger.error("网络连接失败，退出程序")
+                            break
+                        continue
+
+                    if not is_connected:
+                        if not api.connect(CONFIG['host'], CONFIG['port']):
+                            logger.warning("连接TDX服务器失败，5秒后重试...")
+                            time.sleep(5)
+                            continue
+
+                        is_connected = True
+                        logger.info("成功连接TDX服务器")
+
+                    try:
+                        snapshot_time = snapshot_key.split()[-1]
+                        if fetch_and_process_quotes(
+                            api,
+                            stocks,
+                            enabled_stocks,
+                            snapshot_label=f"收盘快照({snapshot_time})"
+                        ):
+                            completed_closing_snapshots.add(snapshot_key)
+                        else:
+                            api.disconnect()
+                            is_connected = False
+                    except Exception as e:
+                        logger.error(f"获取收盘快照失败: {str(e)}")
+                        api.disconnect()
+                        is_connected = False
+
+                    time.sleep(CONFIG['check_interval'])
+                    continue
+
                 logger.info("当前非交易时间，等待60秒后重试")
                 
                 if is_connected:
@@ -392,34 +487,10 @@ def monitor_stocks():
             
             # 获取股票数据
             try:
-                response = api.get_security_quotes(enabled_stocks)
-                
-                if not response:
-                    logger.warning("获取股票数据为空，可能连接已断开")
+                if not fetch_and_process_quotes(api, stocks, enabled_stocks):
                     api.disconnect()
                     is_connected = False
                     continue
-                
-                # 更新股票数据
-                current_time = datetime.now()
-                
-                for item in response:
-                    if isinstance(item, dict) and 'code' in item:
-                        code = item['code']
-                        if code in stocks:
-                            stock = stocks[code]
-                            stock.update(item)
-                            
-                            # 检查警报
-                            check_stock_alerts(stock, current_time)
-                            
-                            # 记录日志
-                            logger.info(
-                                f"股票: {stock.symbol}({stock.code}) | "
-                                f"价格: {stock.current_price:.2f} | "
-                                f"涨跌幅: {stock.change_percent:+.2f}% | "
-                                f"成交额: {stock.amount:.2f}万"
-                            )
 
             except Exception as e:
                 logger.error(f"获取股票数据失败: {str(e)}")
