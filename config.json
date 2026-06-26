@@ -19,30 +19,30 @@
       "code": "920579",
       "market_code": 2,
       "enabled": true,
-      "volume_threshold": 200,
+      "volume_threshold": 150,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 30.0,
-      "target_prices": [42]
+      "target_prices": [29.6]
     },
     {
       "symbol": "无敌小强",
       "code": "688608",
       "market_code": 1,
       "enabled": true,
-      "volume_threshold": 2000,
+      "volume_threshold": 1500,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 20.0,
-      "target_prices": [154.3]
+      "target_prices": [145.1]
     },
     {
       "symbol": "疯狂石头",
       "code": "688169",
       "market_code": 1,
       "enabled": true,
-      "volume_threshold": 2000,
+      "volume_threshold": 1500,
       "price_alert_threshold": 7.0,
       "price_change_threshold": 20.0,
-      "target_prices": [130]
+      "target_prices": [163.2]
     }
   ]
 }
