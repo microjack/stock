@@ -8,9 +8,10 @@ import logging
 import json
 import subprocess
 import socket
+from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Deque, Dict, List, Tuple, Optional, Any
 from pytdx.hq import TdxHq_API
 from plyer import notification
 
@@ -34,6 +35,9 @@ DEFAULT_CONFIG = {
     'retry_delay': 5,
     'notification_cooldown': 60,
     'closing_snapshot_grace_seconds': 10,
+    'rapid_rise_enabled': True,
+    'rapid_rise_window_seconds': 60,
+    'rapid_rise_threshold': 1.0,
 }
 
 DEFAULT_STOCKS_CONFIG = [{
@@ -141,6 +145,15 @@ class Stock:
         self.volume_threshold = config.get('volume_threshold', 10)
         self.price_alert_threshold = config.get('price_alert_threshold', 1.0)
         self.price_change_threshold = config.get('price_change_threshold', 3.0)
+        self.rapid_rise_enabled = config.get('rapid_rise_enabled', CONFIG.get('rapid_rise_enabled', True))
+        self.rapid_rise_window_seconds = config.get(
+            'rapid_rise_window_seconds',
+            CONFIG.get('rapid_rise_window_seconds', 60)
+        )
+        self.rapid_rise_threshold = config.get(
+            'rapid_rise_threshold',
+            CONFIG.get('rapid_rise_threshold', 1.0)
+        )
         
         # 到价提醒配置
         self.target_prices = config.get('target_prices', [])
@@ -158,6 +171,7 @@ class Stock:
         self.volume = 0
         self.amount = 0.0
         self.change_percent = 0.0
+        self.price_history: Deque[Tuple[datetime, float]] = deque()
         
         # 监控状态
         self.last_notification_times = {}
@@ -165,8 +179,9 @@ class Stock:
         self.last_amount_minute = None
         self.last_update = None
         
-    def update(self, data: Dict[str, Any]):
+    def update(self, data: Dict[str, Any], update_time: Optional[datetime] = None):
         """更新股票数据"""
+        self.last_update = update_time or datetime.now()
         self.current_price = data.get('price', 0.0)
         self.last_close = data.get('last_close', 0.0)
         self.volume = data.get('vol', 0)
@@ -175,7 +190,27 @@ class Stock:
         if self.last_close > 0:
             self.change_percent = round((self.current_price - self.last_close) / self.last_close * 100, 2)
         
-        self.last_update = datetime.now()
+        self.record_price(self.last_update)
+
+    def record_price(self, current_time: datetime):
+        """记录短周期价格，用于快速上涨提醒。"""
+        if self.current_price <= 0:
+            return
+
+        self.price_history.append((current_time, self.current_price))
+        self.prune_price_history(current_time)
+
+    def prune_price_history(self, current_time: datetime):
+        """仅保留快速上涨检测窗口内的价格。"""
+        if self.rapid_rise_window_seconds <= 0:
+            self.price_history.clear()
+            return
+
+        while self.price_history:
+            history_time, _ = self.price_history[0]
+            if (current_time - history_time).total_seconds() <= self.rapid_rise_window_seconds:
+                break
+            self.price_history.popleft()
 
 # ==================================================
 # 工具函数
@@ -305,6 +340,40 @@ def send_system_notification(title: str, message: str, critical: bool = False):
     except Exception as e:
         logger.error(f"发送系统通知失败: {str(e)}")
 
+def check_rapid_rise_alert(stock: Stock, current_time: datetime):
+    """检查短时间快速上涨提醒。"""
+    if (
+        not stock.rapid_rise_enabled or
+        stock.rapid_rise_window_seconds <= 0 or
+        stock.rapid_rise_threshold <= 0 or
+        stock.current_price <= 0
+    ):
+        return
+
+    stock.prune_price_history(current_time)
+    if len(stock.price_history) < 2:
+        return
+
+    base_time, base_price = min(stock.price_history, key=lambda item: item[1])
+    if base_price <= 0 or stock.current_price <= base_price:
+        return
+
+    rise_percent = round((stock.current_price - base_price) / base_price * 100, 2)
+    if rise_percent < stock.rapid_rise_threshold:
+        return
+
+    elapsed_seconds = max(1, int((current_time - base_time).total_seconds()))
+    logger.warning(
+        f"{stock.symbol} 快速上涨: {elapsed_seconds}秒上涨{rise_percent:.2f}% "
+        f"({base_price:.2f} -> {stock.current_price:.2f})"
+    )
+    send_notification(
+        stock,
+        "快速上涨提醒",
+        f"{elapsed_seconds}秒上涨{rise_percent:.2f}%：{base_price:.2f} -> {stock.current_price:.2f}",
+        cooldown_key="rapid_rise"
+    )
+
 def check_stock_alerts(stock: Stock, current_time: datetime):
     """检查股票警报"""
     current_minute = current_time.replace(second=0, microsecond=0)
@@ -331,6 +400,9 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
 
             stock.start_amount = stock.amount
             stock.last_amount_minute = current_minute
+
+    # 检查短时间快速上涨提醒
+    check_rapid_rise_alert(stock, current_time)
 
     # 检查价格提醒
     if abs(stock.change_percent) > stock.price_alert_threshold:
@@ -409,7 +481,7 @@ def fetch_and_process_quotes(
             code = item['code']
             if code in stocks:
                 stock = stocks[code]
-                stock.update(item)
+                stock.update(item, current_time)
 
                 # 检查警报
                 check_stock_alerts(stock, current_time)

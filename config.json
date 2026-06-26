@@ -11,7 +11,10 @@
     "max_retries": 3,
     "retry_delay": 5,
     "notification_cooldown": 60,
-    "closing_snapshot_grace_seconds": 10
+    "closing_snapshot_grace_seconds": 10,
+    "rapid_rise_enabled": true,
+    "rapid_rise_window_seconds": 60,
+    "rapid_rise_threshold": 1.0
   },
   "stocks": [
     {
