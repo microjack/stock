@@ -145,10 +145,12 @@ class Stock:
         # 到价提醒配置
         self.target_prices = config.get('target_prices', [])
         self.target_triggered = {}  # 记录每个目标价是否已触发
+        self.target_directions = {}  # 记录目标价触发方向: up/down/hit
         
         # 初始化目标价触发状态
         for price in self.target_prices:
             self.target_triggered[price] = False
+            self.target_directions[price] = None
         
         # 状态
         self.current_price = 0.0
@@ -233,18 +235,25 @@ def wait_for_network_recovery(max_retries: int = 5) -> bool:
     logger.error("网络连接失败超过最大重试次数")
     return False
 
-def can_send_notification(stock: Stock, title: str) -> bool:
+def can_send_notification(stock: Stock, title: str, cooldown_key: Optional[str] = None) -> bool:
     """检查是否可以发送通知"""
-    last_notification_time = stock.last_notification_times.get(title)
+    key = cooldown_key or title
+    last_notification_time = stock.last_notification_times.get(key)
     if last_notification_time is None:
         return True
     
     time_since_last = (datetime.now() - last_notification_time).total_seconds()
     return time_since_last >= CONFIG['notification_cooldown']
 
-def send_notification(stock: Stock, title: str, message: str, critical: bool = False):
+def send_notification(
+    stock: Stock,
+    title: str,
+    message: str,
+    critical: bool = False,
+    cooldown_key: Optional[str] = None
+):
     """发送通知"""
-    if not can_send_notification(stock, title):
+    if not can_send_notification(stock, title, cooldown_key):
         return
     
     try:
@@ -265,7 +274,7 @@ def send_notification(stock: Stock, title: str, message: str, critical: bool = F
                 timeout=10
             )
         
-        stock.last_notification_times[title] = datetime.now()
+        stock.last_notification_times[cooldown_key or title] = datetime.now()
         logger.info(f"已发送通知: {full_title} - {message}")
         
     except Exception as e:
@@ -345,14 +354,34 @@ def check_stock_alerts(stock: Stock, current_time: datetime):
     
     # 检查到价提醒（多个目标价）
     for target_price in stock.target_prices:
-        if not stock.target_triggered[target_price] and stock.current_price >= target_price:
+        if stock.target_triggered[target_price] or stock.current_price <= 0:
+            continue
+
+        if stock.target_directions[target_price] is None:
+            if stock.current_price < target_price:
+                stock.target_directions[target_price] = "up"
+            elif stock.current_price > target_price:
+                stock.target_directions[target_price] = "down"
+            else:
+                stock.target_directions[target_price] = "hit"
+
+        target_direction = stock.target_directions[target_price]
+        target_hit = (
+            target_direction == "hit" or
+            (target_direction == "up" and stock.current_price >= target_price) or
+            (target_direction == "down" and stock.current_price <= target_price)
+        )
+
+        if target_hit:
             stock.target_triggered[target_price] = True
-            logger.warning(f"{stock.symbol} 达到目标价: {stock.current_price:.2f} >= {target_price}")
+            direction_text = "向上达到" if target_direction == "up" else "向下达到" if target_direction == "down" else "达到"
+            logger.warning(f"{stock.symbol} {direction_text}目标价: 当前价 {stock.current_price:.2f}, 目标价 {target_price}")
             send_notification(
                 stock,
                 "到价提醒",
-                f"达到目标价 {target_price:.2f}，当前价 {stock.current_price:.2f}",
-                critical=True
+                f"{direction_text}目标价 {target_price:.2f}，当前价 {stock.current_price:.2f}",
+                critical=True,
+                cooldown_key=f"target_price:{target_price}"
             )
 
 # ==================================================
